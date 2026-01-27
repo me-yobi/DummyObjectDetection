@@ -1,0 +1,381 @@
+# Simple Rectangle Detection with NumPy
+
+A lightweight object detection project that implements a convolution-based rectangle detector from scratch using NumPy and OpenCV. This project demonstrates how to build a simple object detector for rectangles using edge detection and direct regression without requiring training or deep learning frameworks.
+
+## Features
+
+- **Pure NumPy/OpenCV Implementation**: Custom convolution kernels for edge detection
+- **No Training Required**: Direct regression from convolution features
+- **Minimal Dependencies**: Uses only NumPy, OpenCV, and scikit-learn
+- **Edge-Based Detection**: Sobel operators for horizontal/vertical edges and Laplacian for corners
+- **Real-time Performance**: Fast inference with analytical computation
+- **Comprehensive Tools**: Data generation, inference, analysis, and visualization scripts
+
+## Project Structure
+
+```
+DummyObjectDetection/
+├── config.py              # Configuration settings
+├── data/                  # Data handling utilities
+│   ├── DataGenerator.py   # Dataset generation script
+│   ├── dataset.py         # Custom dataset and dataloader classes
+│   └── datasets/          # Generated datasets
+│       └── rectangles/    # Rectangle images and labels
+├── models/                # Model implementations
+│   └── detector.py        # NumPy-based rectangle detector
+├── utils/                 # Utility functions
+│   └── visualization.py   # Visualization utilities
+├── scripts/               # Analysis and utility scripts
+│   ├── analyze_results.py # Model analysis and visualization
+│   ├── inference.py       # Inference script for single images
+│   ├── prepare_data.py    # Data preparation script
+│   ├── debugging/         # Debug utilities
+│   ├── verification/      # Verification scripts
+│   └── visualization/     # Visualization tools
+├── docs/                  # Documentation
+│   └── detector_logic.md  # Detailed detector logic documentation
+├── train.py               # Model evaluation script
+├── requirements.txt       # Python dependencies
+└── saved_models/          # Model outputs directory
+```
+
+## Requirements
+
+Install dependencies with pip:
+
+```bash
+pip install -r requirements.txt
+```
+
+## Quick Start
+
+### 1. Generate Dataset (once)
+
+```bash
+python -m src.scripts.prepare_data
+```
+
+This creates a dataset of rectangle images with bounding box labels in `datasets/rectangles/`.
+
+### 2. Evaluate Model on the Whole Dataset
+
+To run inference over the entire validation set and see how the detector performs end‑to‑end:
+
+```bash
+python -m src.train
+```
+
+This script iterates over the dataset, runs the detector on each image, and reports aggregate metrics.
+
+### 3. Analyze and Visualize Results
+
+```bash
+python -m src.scripts.analyze_results
+```
+
+This generates detailed plots and visualizations of detection performance across the dataset.
+
+### 4. (Optional) Single‑Image Inference Demo
+
+If you want to run the detector on a single image and visualize the predicted box:
+
+```bash
+python -m src.scripts.inference --image datasets/rectangles/images/rectangle_0000.jpg --output result_0000.jpg
+```
+
+Change `rectangle_0000.jpg` to any specific image you want to inspect.
+
+### (Optional) Use the simple `run.py` wrapper
+
+If you prefer shorter commands, you can also use:
+
+```bash
+python run.py prepare
+python run.py train
+python run.py analyze
+python run.py inference --image datasets/rectangles/images/rectangle_0000.jpg --output result_0000.jpg
+```
+
+This generates detailed performance metrics and visualizations.
+
+## Detection Algorithm
+
+The `SimpleRectangleDetector` is a **fixed, analytical pipeline**. It takes an image, applies a series of custom convolutions and simple geometric reasoning, and returns a single bounding box.
+
+At a high level, the flow is:
+
+```text
+Input image (RGB or grayscale)
+        │
+        ▼
+Normalization (optional: [-1,1] → [0,1])
+        │
+        ▼
+Grayscale conversion (mean over channels)
+        │
+        ▼
+Gaussian blur (5×5 conv)
+        │
+        ▼
+Sobel convolutions (horizontal + vertical)
+        │
+        ▼
+Edge magnitude map √(Hx² + Hy²)
+        │
+        ▼
+Adaptive threshold → binary edge map
+        │
+        ▼
+Morphological dilation (3×3 conv)
+        │
+        ▼
+Contour detection
+        │
+        └─► **If valid contour found** → bounding rect → normalized box
+```
+
+The final output is a 5‑element NumPy array:
+
+```text
+[confidence, x_center, y_center, width, height]
+```
+
+All coordinates are **normalized to [0, 1]** relative to image width/height.
+
+### 1. Edge Detection Kernels
+
+When the model is created, it initializes three 3×3 kernels:
+
+- **Horizontal kernel** (`h_kernel`, Sobel X)
+  - Highlights **horizontal edges** (top and bottom rectangle borders).
+- **Vertical kernel** (`v_kernel`, Sobel Y)
+  - Highlights **vertical edges** (left and right rectangle borders).
+- **Corner kernel** (`c_kernel`, Laplacian)
+  - General corner/edge emphasis (currently not used directly in `direct_regression`, but available).
+
+Conceptually, for a small patch of the image:
+
+```text
+3×3 image patch      3×3 Sobel kernel
+      ⊗  (element‑wise multiply & sum)  → edge response (single number)
+```
+
+Sliding this kernel across the image via `conv2d` produces **feature maps** of edge strengths.
+
+### 2. Custom Convolution (`conv2d`)
+
+`conv2d` is a hand‑written 2D convolution:
+
+```text
+Input image (H×W×C) ──► convert to grayscale (H×W)
+Kernel (kh×kw)      ──► (or averaged if given as 3D)
+        │
+        ▼
+Slide kernel over image with valid padding
+        │
+        ▼
+Output feature map of size (H−kh+1) × (W−kw+1)
+```
+
+This is used for:
+
+- Blurring (Gaussian 5×5 kernel)
+- Horizontal edge detection (`h_kernel`)
+- Vertical edge detection (`v_kernel`)
+- Morphological operations (3×3 and 5×5 all‑ones kernels)
+
+### 3. Edge‑Based Bounding Box (Main Path)
+
+`direct_regression` first tries to detect the box **purely from edges**:
+
+```text
+1. Normalize (if needed)
+   image in [-1,1] → (image + 1)/2 in [0,1]
+
+2. Convert to grayscale
+   RGB image → mean over channels
+
+3. Blur with 5×5 Gaussian
+   reduces noise and smooths edges
+
+4. Compute Sobel edges
+   Hx = conv2d(blurred, h_kernel)
+   Hy = conv2d(blurred, v_kernel)
+
+5. Combine into edge magnitude
+   edges = sqrt(Hx² + Hy²)
+
+6. Adaptive threshold
+   threshold = mean(edges) + 2·std(edges)
+   edge_map = 1 if edges > threshold else 0
+
+7. Morphological dilation
+   edge_map ──conv2d with 3×3 ones──► dilated
+   dilated > 0 → 1 (thickens/bridges edges)
+
+8. Contour detection
+   find_contours(dilated) → list of contours
+
+9. Filter contours
+   - Ignore contours covering ≥ 50% of the image (likely border)
+   - Ignore very small areas (< 500 px)
+
+10. Bounding rectangle
+   For the largest valid contour:
+   (x, y, w, h) = cv2.boundingRect(contour)
+
+11. Normalize and pack output
+   x_center = (x + w/2) / image_width
+   y_center = (y + h/2) / image_height
+   width    =  w / image_width
+   height   =  h / image_height
+
+   output = [1.0, x_center, y_center, width, height]
+```
+
+Diagrammatically:
+
+```text
+edges (float map)
+   │
+   ▼
+thresholding → binary edges
+   │
+   ▼
+dilation → thicker edges
+   │
+   ▼
+contours → largest valid rectangle
+   │
+   ▼
+axis‑aligned bounding box → normalized coordinates → output vector
+```
+
+If no suitable contour is found in this path, the detector returns:
+
+```text
+[0.0, 0.0, 0.0, 0.0, 0.0]   # confidence 0.0, no box
+```
+
+### 4. No Training Required
+
+Unlike traditional deep learning approaches, this detector:
+
+- **Uses fixed convolution kernels** (Gaussian blur, Sobel, Laplacian, and all‑ones for morphology).
+- **Performs only analytical operations** (convolutions, thresholds, contour geometry).
+- **Does not maintain any learnable parameters** and therefore has no training loop.
+
+The `forward` method is simply:
+
+```python
+def forward(self, image):
+    """Forward pass - just direct regression"""
+    return self.direct_regression(image)
+```
+
+## Key Implementation Details
+
+### Custom Convolution
+The detector implements 2D convolution from scratch using NumPy, handling both 2D and 3D inputs and kernels (by averaging over channels for 3D):
+
+```python
+def conv2d(self, image, kernel):
+    """2D convolution with valid padding"""
+    # Handle both 2D and 3D images
+    if len(image.shape) == 2:
+        h, w = image.shape
+        image_2d = image
+    else:
+        h, w, c = image.shape
+        image_2d = np.mean(image, axis=2)
+
+    # Handle both 2D and 3D kernels
+    if len(kernel.shape) == 2:
+        kh, kw = kernel.shape
+        kernel_2d = kernel
+    else:
+        kh, kw, kc = kernel.shape
+        kernel_2d = np.mean(kernel, axis=2)
+
+    out_h = h - kh + 1
+    out_w = w - kw + 1
+
+    output = np.zeros((out_h, out_w))
+    for i in range(out_h):
+        for j in range(out_w):
+            output[i, j] = np.sum(image_2d[i:i+kh, j:j+kw] * kernel_2d)
+
+    return output
+```
+
+### Edge Peak Detection
+The detector finds peaks in edge responses to locate rectangle boundaries:
+
+```python
+def _find_peaks(self, features):
+    """Find peaks in edge feature maps"""
+    # Project onto axes and find local maxima
+    h_projection = np.sum(features, axis=0)  # Horizontal projection
+    v_projection = np.sum(features, axis=1)  # Vertical projection
+    
+    # Find peak positions
+    h_peaks = self._find_local_maxima(h_projection)
+    v_peaks = self._find_local_maxima(v_projection)
+    
+    return h_peaks, v_peaks
+```
+
+### Dataset Handling
+Custom dataset and dataloader classes using scikit-learn for splitting:
+
+```python
+from sklearn.model_selection import train_test_split
+
+# Split dataset
+train_indices, val_indices = train_test_split(
+    indices, test_size=val_split, random_state=random_state
+)
+```
+
+## Performance
+
+The detector achieves excellent performance for rectangle detection:
+
+- **Real-time Inference**: Direct computation without training delays
+- **High Accuracy**: Precise edge detection using Sobel and Laplacian operators  
+- **Low Memory Footprint**: Pure NumPy implementation with minimal overhead
+- **Robust Detection**: Works on various rectangle sizes and orientations
+
+## Configuration
+
+The detector behavior can be customized through `config.py`:
+
+```python
+class Config:
+    IMAGE_SIZE = 256          # Input image size
+    NUM_CLASSES = 1           # Only detecting rectangles
+    BATCH_SIZE = 32          # Processing batch size
+    LEARNING_RATE = 1e-4     # (Not used - no training)
+    NUM_EPOCHS = 20          # (Not used - no training)
+    VAL_SPLIT = 0.2          # Validation split ratio
+```
+
+## Documentation
+
+Detailed documentation of the detector logic is available in `docs/detector_logic.md`, including:
+- Complete algorithm explanation
+- Mathematical formulations
+- Implementation details
+- Performance analysis
+
+## Future Improvements
+
+- Add support for multiple object types (circles, triangles)
+- Implement adaptive thresholding for edge detection
+- Add rotation-invariant detection
+- Support for overlapping rectangles
+- Integration with more complex computer vision pipelines
+
+## License
+
+This project is for educational purposes to demonstrate NumPy-based computer vision implementations and edge detection techniques.
