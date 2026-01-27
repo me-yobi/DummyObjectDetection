@@ -15,28 +15,28 @@ A lightweight object detection project that implements a convolution-based recta
 
 ```
 DummyObjectDetection/
-├── config.py              # Configuration settings
-├── data/                  # Data handling utilities
-│   ├── DataGenerator.py   # Dataset generation script
-│   ├── dataset.py         # Custom dataset and dataloader classes
-│   └── datasets/          # Generated datasets
-│       └── rectangles/    # Rectangle images and labels
-├── models/                # Model implementations
-│   └── detector.py        # NumPy-based rectangle detector
-├── utils/                 # Utility functions
-│   └── visualization.py   # Visualization utilities
-├── scripts/               # Analysis and utility scripts
-│   ├── analyze_results.py # Model analysis and visualization
-│   ├── inference.py       # Inference script for single images
-│   ├── prepare_data.py    # Data preparation script
-│   ├── debugging/         # Debug utilities
-│   ├── verification/      # Verification scripts
-│   └── visualization/     # Visualization tools
-├── docs/                  # Documentation
-│   └── detector_logic.md  # Detailed detector logic documentation
-├── train.py               # Model evaluation script
-├── requirements.txt       # Python dependencies
-└── saved_models/          # Model outputs directory
+├── README.md
+├── requirements.txt
+├── run.py               # Optional convenience wrapper
+└── src/
+    ├── __init__.py
+    ├── config.py        # Configuration settings
+    ├── train.py         # Model evaluation script
+    ├── models/          # Model implementations
+    │   ├── __init__.py
+    │   └── detector.py  # NumPy-based rectangle detector
+    ├── data/            # Data handling utilities
+    │   ├── __init__.py
+    │   ├── DataGenerator.py  # Dataset generation script
+    │   └── dataset.py   # Custom dataset and dataloader classes
+    ├── scripts/         # Analysis and utility scripts
+    │   ├── __init__.py
+    │   ├── prepare_data.py   # Data preparation script
+    │   ├── inference.py       # Inference script for single images
+    │   └── analyze_results.py # Model analysis and visualization
+    └── utils/           # Utility functions
+        ├── __init__.py
+        └── visualization.py   # Visualization utilities
 ```
 
 ## Requirements
@@ -359,14 +359,6 @@ class Config:
     NUM_EPOCHS = 20          # (Not used - no training)
     VAL_SPLIT = 0.2          # Validation split ratio
 ```
-
-## Documentation
-
-Detailed documentation of the detector logic is available in `docs/detector_logic.md`, including:
-- Complete algorithm explanation
-- Mathematical formulations
-- Implementation details
-- Performance analysis
 
 ## Future Improvements
 
