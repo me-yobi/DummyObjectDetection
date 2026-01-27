@@ -125,7 +125,12 @@ dmypy.json
 # Project-specific
 datasets/
 saved_models/
+# Result images from scripts
 *.png
 *.jpg
 *.jpeg
 result_*.jpg
+contours_*.jpg
+regression_predictions.png
+validation_predictions.png
+metrics_distribution.png

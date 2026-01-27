@@ -49,7 +49,13 @@ pip install -r requirements.txt
 
 ## Quick Start
 
-### 1. Generate Dataset (once)
+### 1. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Generate Dataset (once)
 
 ```bash
 python -m src.scripts.prepare_data
@@ -57,7 +63,7 @@ python -m src.scripts.prepare_data
 
 This creates a dataset of rectangle images with bounding box labels in `datasets/rectangles/`.
 
-### 2. Evaluate Model on the Whole Dataset
+### 3. Evaluate Model on the Whole Dataset
 
 To run inference over the entire validation set and see how the detector performs end‑to‑end:
 
@@ -67,7 +73,7 @@ python -m src.train
 
 This script iterates over the dataset, runs the detector on each image, and reports aggregate metrics.
 
-### 3. Analyze and Visualize Results
+### 4. Analyze and Visualize Results
 
 ```bash
 python -m src.scripts.analyze_results
@@ -75,7 +81,7 @@ python -m src.scripts.analyze_results
 
 This generates detailed plots and visualizations of detection performance across the dataset.
 
-### 4. (Optional) Single‑Image Inference Demo
+### 5. (Optional) Single‑Image Inference Demo
 
 If you want to run the detector on a single image and visualize the predicted box:
 
@@ -84,6 +90,24 @@ python -m src.scripts.inference --image datasets/rectangles/images/rectangle_000
 ```
 
 Change `rectangle_0000.jpg` to any specific image you want to inspect.
+
+### 6. (Optional) Visualize Contours and Edge Maps
+
+To see the intermediate edge maps, binary thresholding, dilation, and contours produced by the detector:
+
+```bash
+python -m src.scripts.visualize_contours --image datasets/rectangles/images/rectangle_0000.jpg --output contours_0000.jpg
+```
+
+This generates a 2×3 subplot visualization:
+- Original image
+- Sobel edge magnitude
+- Binary edges after adaptive threshold
+- Dilated edges
+- All detected contours
+- Final selected contour with bounding box
+
+Use this to debug and understand how the convolution kernels produce contours at each step.
 
 ### (Optional) Use the simple `run.py` wrapper
 
@@ -94,6 +118,7 @@ python run.py prepare
 python run.py train
 python run.py analyze
 python run.py inference --image datasets/rectangles/images/rectangle_0000.jpg --output result_0000.jpg
+python run.py visualize --image datasets/rectangles/images/rectangle_0000.jpg --output contours_0000.jpg
 ```
 
 This generates detailed performance metrics and visualizations.
@@ -109,12 +134,6 @@ Input image (RGB or grayscale)
         │
         ▼
 Normalization (optional: [-1,1] → [0,1])
-        │
-        ▼
-Grayscale conversion (mean over channels)
-        │
-        ▼
-Gaussian blur (5×5 conv)
         │
         ▼
 Sobel convolutions (horizontal + vertical)
@@ -179,7 +198,6 @@ Output feature map of size (H−kh+1) × (W−kw+1)
 
 This is used for:
 
-- Blurring (Gaussian 5×5 kernel)
 - Horizontal edge detection (`h_kernel`)
 - Vertical edge detection (`v_kernel`)
 - Morphological operations (3×3 and 5×5 all‑ones kernels)
@@ -195,42 +213,41 @@ This is used for:
 2. Convert to grayscale
    RGB image → mean over channels
 
-3. Blur with 5×5 Gaussian
-   reduces noise and smooths edges
+3. Compute Sobel edges
+   Hx = conv2d(gray, h_kernel)
+   Hy = conv2d(gray, v_kernel)
 
-4. Compute Sobel edges
-   Hx = conv2d(blurred, h_kernel)
-   Hy = conv2d(blurred, v_kernel)
-
-5. Combine into edge magnitude
+4. Combine into edge magnitude
    edges = sqrt(Hx² + Hy²)
 
-6. Adaptive threshold
+5. Adaptive threshold
    threshold = mean(edges) + 2·std(edges)
    edge_map = 1 if edges > threshold else 0
 
-7. Morphological dilation
+6. Morphological dilation
    edge_map ──conv2d with 3×3 ones──► dilated
    dilated > 0 → 1 (thickens/bridges edges)
 
-8. Contour detection
+7. Contour detection
    find_contours(dilated) → list of contours
 
-9. Filter contours
+8. Filter contours
    - Ignore contours covering ≥ 50% of the image (likely border)
    - Ignore very small areas (< 500 px)
 
-10. Bounding rectangle
-   For the largest valid contour:
-   (x, y, w, h) = cv2.boundingRect(contour)
+9. Select largest valid contour
+   max(contours, key=contour_area) → best_contour
 
-11. Normalize and pack output
-   x_center = (x + w/2) / image_width
-   y_center = (y + h/2) / image_height
-   width    =  w / image_width
-   height   =  h / image_height
+10. Bounding box
+    bounding_rect(best_contour) → (x, y, w, h)
 
-   output = [1.0, x_center, y_center, width, height]
+11. Normalize to [0,1]
+    x_center = (x + w/2) / image_width
+    y_center = (y + h/2) / image_height
+    width = w / image_width
+    height = h / image_height
+
+12. Return [confidence, x_center, y_center, width, height]
 ```
 
 Diagrammatically:
@@ -261,7 +278,7 @@ If no suitable contour is found in this path, the detector returns:
 
 Unlike traditional deep learning approaches, this detector:
 
-- **Uses fixed convolution kernels** (Gaussian blur, Sobel, Laplacian, and all‑ones for morphology).
+- **Uses fixed convolution kernels** (Sobel, Laplacian, and all‑ones for morphology).
 - **Performs only analytical operations** (convolutions, thresholds, contour geometry).
 - **Does not maintain any learnable parameters** and therefore has no training loop.
 

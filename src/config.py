@@ -11,9 +11,9 @@ class Config:
     NUM_EPOCHS = 20
     
     # Paths
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    DATASET_DIR = os.path.join(BASE_DIR, "data/datasets/rectangles")
-    DATA_GENERATOR_PATH = os.path.join(BASE_DIR, "data", "DataGenerator.py")
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # Project root
+    DATASET_DIR = os.path.join(BASE_DIR, "datasets/rectangles")
+    DATA_GENERATOR_PATH = os.path.join(BASE_DIR, "src/data", "DataGenerator.py")
     SAVE_DIR = os.path.join(BASE_DIR, "saved_models")
     os.makedirs(SAVE_DIR, exist_ok=True)
     

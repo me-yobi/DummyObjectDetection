@@ -6,7 +6,7 @@ import subprocess
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python run.py prepare|train|analyze|inference [...]")
+        print("Usage: python run.py prepare|train|analyze|inference|visualize [...]")
         sys.exit(1)
 
     cmd = sys.argv[1]
@@ -20,6 +20,8 @@ def main():
         subprocess.run([sys.executable, "-m", "src.scripts.analyze_results"] + args)
     elif cmd == "inference":
         subprocess.run([sys.executable, "-m", "src.scripts.inference"] + args)
+    elif cmd == "visualize":
+        subprocess.run([sys.executable, "-m", "src.scripts.visualize_contours"] + args)
     else:
         print(f"Unknown command: {cmd}")
         sys.exit(1)
