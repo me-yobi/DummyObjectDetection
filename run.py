@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Simple entry point that forwards to src.scripts or src.train"""
+"""Simple entry point that forwards to src.scripts or src.evaluate_model"""
 
 import sys
 import subprocess
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python run.py prepare|train|analyze|inference|visualize [...]")
+        print("Usage: python run.py prepare|evaluate|analyze|inference|visualize [...]")
         sys.exit(1)
 
     cmd = sys.argv[1]
@@ -14,8 +14,8 @@ def main():
 
     if cmd == "prepare":
         subprocess.run([sys.executable, "-m", "src.scripts.prepare_data"] + args)
-    elif cmd == "train":
-        subprocess.run([sys.executable, "-m", "src.train"] + args)
+    elif cmd == "evaluate":
+        subprocess.run([sys.executable, "-m", "src.evaluate_model"] + args)
     elif cmd == "analyze":
         subprocess.run([sys.executable, "-m", "src.scripts.analyze_results"] + args)
     elif cmd == "inference":
