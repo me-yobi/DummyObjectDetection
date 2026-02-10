@@ -1,6 +1,6 @@
-import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 def plot_image_with_boxes(image, boxes, class_names=None, figsize=(10, 10)):
     """
@@ -24,11 +24,16 @@ def plot_image_with_boxes(image, boxes, class_names=None, figsize=(10, 10)):
     else:
         image = image.astype(np.uint8)
     
-    # Convert RGB to BGR for OpenCV
+    # Work with RGB image directly
     if len(image.shape) == 3:
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        image = image.copy()
     
     h, w = image.shape[:2]
+    
+    plt.figure(figsize=figsize)
+    axes = plt.gca()
+    plt.imshow(image)
+    plt.axis('off')
     
     for box in boxes:
         if len(box) != 5:
@@ -44,19 +49,16 @@ def plot_image_with_boxes(image, boxes, class_names=None, figsize=(10, 10)):
         x2 = int(x_center + width / 2)
         y2 = int(y_center + height / 2)
         
-        # Draw rectangle
-        color = (0, 255, 0)  # Green
-        cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
+        # Draw rectangle using matplotlib patches
+        color = 'green'  # Green
+        rect = patches.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=2, edgecolor=color, facecolor='none')
+        axes.add_patch(rect)
         
         # Add class label if available
         if class_names:
             label = class_names[int(class_id)]
-            cv2.putText(image, label, (x1, y1 - 10), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+            axes.text(x1, y1 - 10, label, fontsize=10, color=color)
     
-    plt.figure(figsize=figsize)
-    plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-    plt.axis('off')
     plt.show()
 
 def visualize_batch(images, targets, predictions=None, class_names=None, max_images=4):

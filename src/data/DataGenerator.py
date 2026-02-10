@@ -1,6 +1,6 @@
 import os
-import cv2
 import numpy as np
+from PIL import Image
 from tqdm import tqdm
 
 def create_noisy_image_with_rectangle(image_size=(256, 256, 3), min_rect_size=32, max_rect_size=128):
@@ -43,8 +43,14 @@ def create_noisy_image_with_rectangle(image_size=(256, 256, 3), min_rect_size=32
     
     border_thickness = 3  # Fixed thickness for consistency
     
-    # Draw the rectangle on the background
-    cv2.rectangle(background, (x1, y1), (x2, y2), border_color, border_thickness)
+    # Draw rectangle on background using numpy
+    background[y1:y2+1, x1:x2+1] = border_color
+    # Make the border thicker by expanding outward
+    for i in range(border_thickness):
+        if y1-i >= 0: background[y1-i, x1:x2+1] = border_color
+        if y2+i < image_size[0]: background[y2+i, x1:x2+1] = border_color
+        if x1-i >= 0: background[y1:y2+1, x1-i] = border_color
+        if x2+i < image_size[1]: background[y1:y2+1, x2+i] = border_color
     
     # Add some noise but keep the rectangle visible
     noise = np.random.randint(-30, 31, size=image_size, dtype=np.int16)
@@ -87,7 +93,7 @@ def generate_rectangle_dataset(output_folder="datasets/rectangles", num_images=5
         # Save the image
         img_filename = f"rectangle_{i:04d}.jpg"
         img_path = os.path.join(images_dir, img_filename)
-        cv2.imwrite(img_path, img)
+        Image.fromarray(img.astype(np.uint8)).save(img_path)
         
         # Save the label in YOLO format
         label_filename = f"rectangle_{i:04d}.txt"

@@ -1,6 +1,6 @@
 import os
-import cv2
 import numpy as np
+from PIL import Image
 from sklearn.model_selection import train_test_split
 
 class RectangleDataset:
@@ -18,8 +18,7 @@ class RectangleDataset:
     def __getitem__(self, idx):
         # Load image
         image_path = os.path.join(self.image_dir, self.image_files[idx])
-        image = cv2.imread(image_path)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = np.array(Image.open(image_path).convert('RGB'))
         
         # Load label
         label_path = os.path.join(self.label_dir, self.image_files[idx].replace('.jpg', '.txt').replace('.png', '.txt'))

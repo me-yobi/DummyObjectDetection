@@ -4,7 +4,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-from .config import Config
+from tqdm import tqdm
+from ..config import Config
 from ..data.dataset import RectangleDataset
 from ..models.detector import SimpleRectangleDetector
 
@@ -123,16 +124,28 @@ def analyze_model():
     # Analyze entire validation set
     print("\nAnalyzing entire validation set...")
     model.eval()
-    for i in range(len(val_dataset)):
-        image, true_label = val_dataset[i]
-        img_hwc = image.transpose(1, 2, 0)
-        pred = model.forward(img_hwc)
-        
-        ious.append(calculate_iou(pred, true_label))
-        center_errors.append(np.sqrt((pred[1] - true_label[1])**2 + (pred[2] - true_label[2])**2))
-        size_errors.append(np.sqrt((pred[3] - true_label[3])**2 + (pred[4] - true_label[4])**2))
-        all_predictions.append(pred)
-        all_targets.append(true_label)
+    
+    # Create progress bar for validation set analysis
+    val_dataset_size = len(val_dataset)
+    with tqdm(total=val_dataset_size, desc="Processing validation samples", unit="samples") as pbar:
+        for i in range(val_dataset_size):
+            image, true_label = val_dataset[i]
+            img_hwc = image.transpose(1, 2, 0)
+            pred = model.forward(img_hwc)
+            
+            ious.append(calculate_iou(pred, true_label))
+            center_errors.append(np.sqrt((pred[1] - true_label[1])**2 + (pred[2] - true_label[2])**2))
+            size_errors.append(np.sqrt((pred[3] - true_label[3])**2 + (pred[4] - true_label[4])**2))
+            all_predictions.append(pred)
+            all_targets.append(true_label)
+            
+            # Update progress bar
+            pbar.update(1)
+            
+            # Update description with current metrics
+            if len(ious) > 0:
+                current_iou = np.mean(ious[-10:]) if len(ious) >= 10 else np.mean(ious)
+                pbar.set_description(f"Processing (IoU: {current_iou:.3f})")
     
     # Convert to numpy arrays
     all_predictions = np.array(all_predictions)

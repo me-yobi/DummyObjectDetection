@@ -1,5 +1,4 @@
 import numpy as np
-import cv2
 
 class SimpleRectangleDetector:
     """
@@ -79,27 +78,151 @@ class SimpleRectangleDetector:
         return output
     
     def find_edges(self, features, threshold=0.1):
-        """Find edge positions from feature map"""
+        """Find edge positions from feature map using custom contour detection"""
         # Threshold the features
         binary = (features > threshold).astype(np.uint8)
         
-        # Find contours
-        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # Find contours using custom algorithm
+        contours = self._find_contours_custom(binary)
         
         return contours
     
     def find_contours(self, image):
-        """Find contours in binary image"""
-        contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        return contours
+        """Find contours in binary image using custom algorithm"""
+        return self._find_contours_custom(image)
     
     def contour_area(self, contour):
-        """Compute area of contour"""
-        return cv2.contourArea(contour)
+        """Compute area of contour using shoelace formula"""
+        if len(contour) < 3:
+            return 0.0
+        
+        # Reshape contour to get (n, 2) array of points
+        points = contour.reshape(-1, 2).astype(np.float64)
+        
+        # Apply shoelace formula
+        x = points[:, 0]
+        y = points[:, 1]
+        area = 0.5 * np.abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))
+        
+        return float(area)
     
     def bounding_rect(self, contour):
         """Compute bounding rectangle of contour"""
-        return cv2.boundingRect(contour)
+        if len(contour) == 0:
+            return (0, 0, 0, 0)
+        
+        # Reshape contour to get (n, 2) array of points
+        points = contour.reshape(-1, 2)
+        
+        # Find min and max coordinates
+        min_x = np.min(points[:, 0])
+        max_x = np.max(points[:, 0])
+        min_y = np.min(points[:, 1])
+        max_y = np.max(points[:, 1])
+        
+        # Convert to int and calculate width/height
+        x = int(min_x)
+        y = int(min_y)
+        w = int(max_x - min_x)
+        h = int(max_y - min_y)
+        
+        return (x, y, w, h)
+    
+    def _find_contours_custom(self, binary_image):
+        """
+        Custom contour detection algorithm using numpy.
+        Implements a boundary following algorithm to find contours in binary images.
+        """
+        # Ensure binary image is uint8 with values 0 or 255
+        binary = binary_image.copy()
+        if binary.max() <= 1:
+            binary = (binary * 255).astype(np.uint8)
+        else:
+            binary = binary.astype(np.uint8)
+        
+        h, w = binary.shape
+        visited = np.zeros((h, w), dtype=bool)
+        contours = []
+        
+        # Find all boundary pixels (pixels that have at least one background neighbor)
+        for i in range(1, h-1):
+            for j in range(1, w-1):
+                if binary[i, j] > 0 and not visited[i, j]:
+                    # Check if this is a boundary pixel
+                    is_boundary = False
+                    for di in [-1, 0, 1]:
+                        for dj in [-1, 0, 1]:
+                            if di == 0 and dj == 0:
+                                continue
+                            ni, nj = i + di, j + dj
+                            if 0 <= ni < h and 0 <= nj < w:
+                                if binary[ni, nj] == 0:
+                                    is_boundary = True
+                                    break
+                        if is_boundary:
+                            break
+                    
+                    if is_boundary:
+                        # Trace contour from this boundary pixel
+                        contour = self._trace_contour(binary, visited, i, j)
+                        if len(contour) > 2:  # Only keep contours with more than 2 points
+                            contours.append(np.array(contour, dtype=np.int32).reshape(-1, 1, 2))
+        
+        return contours
+    
+    def _trace_contour(self, binary, visited, start_i, start_j):
+        """
+        Trace a single contour starting from (start_i, start_j) using boundary following.
+        """
+        h, w = binary.shape
+        contour = []
+        
+        # 8-connected neighborhood directions (clockwise)
+        directions = [(-1, -1), (-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1)]
+        
+        current_i, current_j = start_i, start_j
+        start_dir = 0  # Start searching from direction 0
+        
+        while True:
+            # Mark current pixel as visited
+            visited[current_i, current_j] = True
+            contour.append([current_j, current_i])  # Store as (x, y)
+            
+            # Find next boundary pixel
+            found_next = False
+            for dir_offset in range(8):
+                dir_idx = (start_dir + dir_offset) % 8
+                di, dj = directions[dir_idx]
+                next_i, next_j = current_i + di, current_j + dj
+                
+                if (0 <= next_i < h and 0 <= next_j < w and 
+                    binary[next_i, next_j] > 0 and not visited[next_i, next_j]):
+                    
+                    # Check if this is a boundary pixel
+                    is_boundary = False
+                    for ddi in [-1, 0, 1]:
+                        for ddj in [-1, 0, 1]:
+                            if ddi == 0 and ddj == 0:
+                                continue
+                            ni, nj = next_i + ddi, next_j + ddj
+                            if 0 <= ni < h and 0 <= nj < w:
+                                if binary[ni, nj] == 0:
+                                    is_boundary = True
+                                    break
+                        if is_boundary:
+                            break
+                    
+                    if is_boundary:
+                        current_i, current_j = next_i, next_j
+                        start_dir = (dir_idx + 6) % 8  # Start searching from previous direction
+                        found_next = True
+                        break
+            
+            # If we can't find next pixel or we're back to start, finish
+            if not found_next or (current_i == start_i and current_j == start_j):
+                break
+        
+        return contour
     
     def direct_regression(self, image):
         """
