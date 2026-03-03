@@ -1,0 +1,5 @@
+#!/bin/bash
+# Simple wrapper script for the pipeline
+
+cd "$(dirname "$0")"
+python run_pipeline.py "$@"

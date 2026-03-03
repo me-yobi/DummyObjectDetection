@@ -3,20 +3,38 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
-def create_noisy_image_with_rectangle(image_size=(256, 256, 3), min_rect_size=32, max_rect_size=128):
+def create_noisy_image_with_rectangle(image_size=(256, 256, 3), min_rect_size=32, max_rect_size=128, dataset_type='colored'):
     """
-    Creates a noisy image with a randomly placed and colored rectangle.
+    Creates a noisy image with a randomly placed rectangle.
     
     Args:
         image_size: Tuple of (height, width, channels) for the output image
         min_rect_size: Minimum size of the rectangle
         max_rect_size: Maximum size of the rectangle
+        dataset_type: 'grayscale' for grayscale noise with black rectangle, 'colored' for colored noise with colored rectangle
         
     Returns:
         A tuple of (image, label) where label is in YOLO format
     """
-    # Create a blank image with gray background (less noise for better visibility)
-    background = np.random.randint(100, 156, size=image_size, dtype=np.uint8)  # Gray background
+    if dataset_type == 'grayscale':
+        # Grayscale noise background
+        background = np.random.randint(50, 200, size=image_size, dtype=np.uint8)
+        # Convert to grayscale by copying the first channel to all channels
+        background = np.stack([background[:,:,0]] * 3, axis=-1)
+        # Black rectangle
+        border_color = (0, 0, 0)
+    else:  # colored
+        # Colored noise background
+        background = np.random.randint(100, 156, size=image_size, dtype=np.uint8)
+        # Choose a high-contrast color for the rectangle (not gray)
+        bright_colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255], 
+                        [255, 255, 0], [255, 0, 255], [0, 255, 255]]
+        dark_colors = [[0, 0, 0], [50, 0, 0], [0, 50, 0], [0, 0, 50]]
+        
+        if np.random.random() > 0.5:
+            border_color = tuple(bright_colors[np.random.randint(len(bright_colors))])
+        else:
+            border_color = tuple(dark_colors[np.random.randint(len(dark_colors))])
     
     # Generate random rectangle dimensions and position
     rect_width = np.random.randint(min_rect_size, max_rect_size)
@@ -28,18 +46,6 @@ def create_noisy_image_with_rectangle(image_size=(256, 256, 3), min_rect_size=32
     x2 = x1 + rect_width
     y2 = y1 + rect_height
     
-    # Choose a high-contrast color for the rectangle (not gray)
-    # Use either bright or dark colors to ensure visibility
-    bright_colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255], 
-                    [255, 255, 0], [255, 0, 255], [0, 255, 255]]
-    dark_colors = [[0, 0, 0], [50, 0, 0], [0, 50, 0], [0, 0, 50]]
-    
-    if np.random.random() > 0.5:
-        # Bright color
-        border_color = tuple(bright_colors[np.random.randint(len(bright_colors))])
-    else:
-        # Dark color
-        border_color = tuple(dark_colors[np.random.randint(len(dark_colors))])
     
     border_thickness = 3  # Fixed thickness for consistency
     
@@ -68,13 +74,14 @@ def create_noisy_image_with_rectangle(image_size=(256, 256, 3), min_rect_size=32
     
     return noisy_image, label
 
-def generate_rectangle_dataset(output_folder="datasets/rectangles", num_images=500):
+def generate_rectangle_dataset(output_folder="datasets/rectangles", num_images=500, dataset_type='colored'):
     """
     Generates a dataset of noisy images with random rectangles.
     
     Args:
         output_folder: Where to save the generated dataset
         num_images: Number of images to generate
+        dataset_type: 'grayscale' for grayscale noise with black rectangle, 'colored' for colored noise with colored rectangle
     """
     # Set up directory structure
     images_dir = os.path.join(output_folder, "images")
@@ -88,7 +95,7 @@ def generate_rectangle_dataset(output_folder="datasets/rectangles", num_images=5
     
     for i in tqdm(range(num_images), desc="Generating images"):
         # Create the image and get its label
-        img, label = create_noisy_image_with_rectangle()
+        img, label = create_noisy_image_with_rectangle(dataset_type=dataset_type)
         
         # Save the image
         img_filename = f"rectangle_{i:04d}.jpg"
@@ -106,5 +113,8 @@ def generate_rectangle_dataset(output_folder="datasets/rectangles", num_images=5
     print(f"Labels saved to: {labels_dir}")
 
 if __name__ == "__main__":
-    # Generate the dataset
-    generate_rectangle_dataset()
+    # Generate both datasets
+    print("Generating grayscale dataset...")
+    generate_rectangle_dataset(output_folder="datasets/rectangles_grayscale", num_images=500, dataset_type='grayscale')
+    print("\nGenerating colored dataset...")
+    generate_rectangle_dataset(output_folder="datasets/rectangles_colored", num_images=500, dataset_type='colored')

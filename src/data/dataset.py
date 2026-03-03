@@ -2,14 +2,21 @@ import os
 import numpy as np
 from PIL import Image
 from sklearn.model_selection import train_test_split
+from tqdm import tqdm
 
 class RectangleDataset:
     """Custom dataset class for rectangle detection without PyTorch"""
     
     def __init__(self, data_dir, normalize=True):
+        print(f"📂 Initializing dataset from: {data_dir}")
         self.image_dir = os.path.join(data_dir, "images")
         self.label_dir = os.path.join(data_dir, "labels")
-        self.image_files = sorted([f for f in os.listdir(self.image_dir) if f.endswith(('.jpg', '.png'))])
+        
+        print("🔍 Scanning for image files...")
+        all_files = os.listdir(self.image_dir)
+        self.image_files = sorted([f for f in all_files if f.endswith(('.jpg', '.png'))])
+        print(f"✅ Found {len(self.image_files)} image files")
+        
         self.normalize = normalize
         
     def __len__(self):

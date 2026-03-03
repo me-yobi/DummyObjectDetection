@@ -43,16 +43,21 @@ def calculate_iou(pred_box, true_box):
 
 def evaluate_model():
     """Evaluate the regression model on validation set"""
+    print("🔧 Loading configuration...")
     cfg = Config()
+    print(f"📁 Dataset directory: {cfg.DATASET_DIR}")
     
+    print("🤖 Creating model...")
     # Create model (no training needed)
     model = SimpleRectangleDetector()
-    print("Created regression-based model (no training required)")
+    print("✅ Created regression-based model (no training required)")
     
+    print("📂 Loading dataset...")
     # Get all data (no split needed since we're not training)
     full_dataset = RectangleDataset(cfg.DATASET_DIR)
+    print(f"✅ Dataset loaded successfully: {len(full_dataset)} samples")
     
-    print(f"Total samples: {len(full_dataset)}")
+    print(f"📊 Starting evaluation on {len(full_dataset)} samples...")
     
     # Evaluate on entire dataset
     model.eval()
@@ -62,7 +67,7 @@ def evaluate_model():
     ious = []
     losses = []
     
-    print("\nEvaluating on all samples...")
+    print("\n🚀 Processing samples...")
     
     # Process in batches for memory efficiency
     batch_size = 32

@@ -11,7 +11,10 @@ import argparse
 from pathlib import Path
 
 try:
-    from ..data.DataGenerator import generate_rectangle_dataset
+    import sys
+    import os
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+    from data.DataGenerator import generate_rectangle_dataset
 except ImportError:
     print("Error: Could not import DataGenerator from src.data")
     sys.exit(1)
@@ -22,6 +25,8 @@ def main():
                        help='Output directory for generated dataset')
     parser.add_argument('--num-images', type=int, default=500, 
                        help='Number of images to generate')
+    parser.add_argument('--dataset-type', type=str, default='colored', choices=['grayscale', 'colored'],
+                       help='Type of dataset to generate: grayscale or colored')
     parser.add_argument('--force', action='store_true', 
                        help='Force regeneration even if dataset exists')
     
@@ -44,7 +49,8 @@ def main():
     # Generate the dataset
     generate_rectangle_dataset(
         output_folder=args.output_dir,
-        num_images=args.num_images
+        num_images=args.num_images,
+        dataset_type=args.dataset_type
     )
     
     print(f"\nDataset preparation complete!")
