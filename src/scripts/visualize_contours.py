@@ -2,18 +2,19 @@
 """Visualize contours and intermediate edge maps produced by the detector"""
 
 import argparse
-import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+from PIL import Image
+import os
 from ..models.detector import SimpleRectangleDetector
 
 def load_image(image_path):
     """Load and preprocess image"""
-    image = cv2.imread(image_path)
-    if image is None:
-        raise ValueError(f"Could not load image: {image_path}")
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    return image
+    try:
+        image = np.array(Image.open(image_path).convert('RGB'))
+        return image
+    except Exception as e:
+        raise ValueError(f"Could not load image: {image_path}. Error: {e}")
 
 def visualize_pipeline(image_path, output_path=None):
     """Visualize the full pipeline: edges, threshold, dilation, contours"""
@@ -41,24 +42,24 @@ def visualize_pipeline(image_path, output_path=None):
     dilated = detector.conv2d(edge_map.astype(np.float32), morph_kernel)
     dilated = (dilated > 0).astype(np.uint8) * 255
     
-    # --- Step 5: Find contours ---
-    contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # --- Step 5: Find contours using our NumPy implementation ---
+    contours = detector._find_contours_custom(edge_map)
     
     # Filter contours (same logic as detector)
     h_img, w_img = img.shape[:2]
     image_area = h_img * w_img
     valid_contours = []
     for cnt in contours:
-        area = cv2.contourArea(cnt)
+        area = detector.contour_area(cnt)
         if area < 500 or area >= 0.5 * image_area:
             continue
         valid_contours.append(cnt)
     
     # Select largest valid contour (if any)
     if valid_contours:
-        best_contour = max(valid_contours, key=cv2.contourArea)
+        best_contour = max(valid_contours, key=detector.contour_area)
         # Get bounding box
-        x, y, w, h = cv2.boundingRect(best_contour)
+        x, y, w, h = detector.bounding_rect(best_contour)
         pred_box = [1.0, (x + w/2)/w_img, (y + h/2)/h_img, w/w_img, h/h_img]
     else:
         best_contour = None
@@ -91,7 +92,13 @@ def visualize_pipeline(image_path, output_path=None):
     
     # All contours on original
     img_all_contours = img.copy()
-    cv2.drawContours(img_all_contours, contours, -1, (255, 0, 0), 1)  # Blue for all
+    from matplotlib.patches import Polygon
+    for cnt in contours:
+        if len(cnt) > 0:
+            # Reshape contour from (-1, 1, 2) to (-1, 2) for matplotlib
+            points = cnt.reshape(-1, 2)
+            poly = Polygon(points, fill=False, edgecolor='blue', linewidth=1)
+            axes[1, 1].add_patch(poly)
     axes[1, 1].imshow(img_all_contours)
     axes[1, 1].set_title(f'All Contours ({len(contours)} found)')
     axes[1, 1].axis('off')
@@ -99,14 +106,22 @@ def visualize_pipeline(image_path, output_path=None):
     # Final selected contour + bounding box
     img_final = img.copy()
     if best_contour is not None:
-        cv2.drawContours(img_final, [best_contour], -1, (0, 255, 0), 2)  # Green for selected
+        # Draw selected contour
+        points = best_contour.reshape(-1, 2)
+        poly = Polygon(points, fill=False, edgecolor='green', linewidth=2)
+        axes[1, 2].add_patch(poly)
+        
         # Draw bounding box
         x1 = int((pred_box[1] - pred_box[3]/2) * w_img)
         y1 = int((pred_box[2] - pred_box[4]/2) * h_img)
         x2 = int((pred_box[1] + pred_box[3]/2) * w_img)
         y2 = int((pred_box[2] + pred_box[4]/2) * h_img)
-        cv2.rectangle(img_final, (x1, y1), (x2, y2), (255, 0, 0), 2)
-        axes[1, 2].set_title(f'Selected Contour (IoU-based)\nBox: [{pred_box[1]:.3f}, {pred_box[2]:.3f}, {pred_box[3]:.3f}, {pred_box[4]:.3f}]')
+        
+        from matplotlib.patches import Rectangle
+        rect = Rectangle((x1, y1), x2-x1, y2-y1, fill=False, edgecolor='red', linewidth=2)
+        axes[1, 2].add_patch(rect)
+        
+        axes[1, 2].set_title(f'Selected Contour\nBox: [{pred_box[1]:.3f}, {pred_box[2]:.3f}, {pred_box[3]:.3f}, {pred_box[4]:.3f}]')
     else:
         axes[1, 2].set_title('No Valid Contour Found')
     axes[1, 2].imshow(img_final)

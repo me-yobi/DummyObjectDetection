@@ -147,6 +147,9 @@ def visualize_predictions(model, dataset, predictions, targets, num_samples=10):
         image, true_target = dataset[i]
         pred_target = predictions[i]
         
+        # Get filename for identification
+        filename = dataset.image_files[i]
+        
         # Convert from CxHxW to HxWxC
         img = image.transpose(1, 2, 0)
         
@@ -189,7 +192,7 @@ def visualize_predictions(model, dataset, predictions, targets, num_samples=10):
         
         # Calculate IoU for this sample
         iou = calculate_iou(pred_target, true_target)
-        plt.title(f'Sample {i+1}\nIoU: {iou:.3f}')
+        plt.title(f'{filename}\nIoU: {iou:.3f}')
         plt.axis('off')
     
     plt.suptitle('Model Predictions (Green=True, Red=Predicted)', fontsize=16)
