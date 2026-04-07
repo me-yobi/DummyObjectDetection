@@ -25,8 +25,8 @@ def main():
                        help='Output directory for generated dataset')
     parser.add_argument('--num-images', type=int, default=500, 
                        help='Number of images to generate')
-    parser.add_argument('--dataset-type', type=str, default='colored', choices=['grayscale', 'colored'],
-                       help='Type of dataset to generate: grayscale or colored')
+    parser.add_argument('--dataset-type', type=str, default='colored', choices=['grayscale', 'colored', 'grayscale_border', 'colored_border'],
+                       help='Type of dataset to generate - grayscale, colored, grayscale_border, or colored_border (default: colored)')
     parser.add_argument('--force', action='store_true', 
                        help='Force regeneration even if dataset exists')
     

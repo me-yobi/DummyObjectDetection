@@ -137,74 +137,7 @@ def evaluate_model():
     print(f"  MSE: {mse:.6f}")
     print(f"  MAE: {mae:.6f}")
     
-    # Visualize some predictions
-    visualize_predictions(model, full_dataset, all_predictions, all_targets, num_samples=10)
-    
     return all_predictions, all_targets, ious, losses
-
-def visualize_predictions(model, dataset, predictions, targets, num_samples=10):
-    """Visualize model predictions"""
-    print(f"\nVisualizing {num_samples} predictions...")
-    
-    plt.figure(figsize=(20, 12))
-    
-    for i in range(min(num_samples, len(dataset))):
-        image, true_target = dataset[i]
-        pred_target = predictions[i]
-        
-        # Get filename for identification
-        filename = dataset.image_files[i]
-        
-        # Convert from CxHxW to HxWxC
-        img = image.transpose(1, 2, 0)
-        
-        # Denormalize image for display
-        if img.max() <= 1.0:
-            img = img * 255.0
-        img = np.clip(img, 0, 255).astype(np.uint8)
-        
-        plt.subplot(2, 5, i + 1)
-        plt.imshow(img)
-        
-        # Convert normalized coordinates to pixel coordinates
-        h, w = img.shape[:2]
-        
-        # True box (green)
-        true_x = true_target[1] * w
-        true_y = true_target[2] * h
-        true_w = true_target[3] * w
-        true_h = true_target[4] * h
-        true_x1 = true_x - true_w/2
-        true_y1 = true_y - true_h/2
-        
-        # Predicted box (red)
-        pred_x = pred_target[1] * w
-        pred_y = pred_target[2] * h
-        pred_w = pred_target[3] * w
-        pred_h = pred_target[4] * h
-        pred_x1 = pred_x - pred_w/2
-        pred_y1 = pred_y - pred_h/2
-        
-        # Draw true box
-        true_rect = plt.Rectangle((true_x1, true_y1), true_w, true_h, 
-                              fill=False, edgecolor='green', linewidth=2)
-        plt.gca().add_patch(true_rect)
-        
-        # Draw predicted box
-        pred_rect = plt.Rectangle((pred_x1, pred_y1), pred_w, pred_h, 
-                              fill=False, edgecolor='red', linewidth=2)
-        plt.gca().add_patch(pred_rect)
-        
-        # Calculate IoU for this sample
-        iou = calculate_iou(pred_target, true_target)
-        plt.title(f'{filename}\nIoU: {iou:.3f}')
-        plt.axis('off')
-    
-    plt.suptitle('Model Predictions (Green=True, Red=Predicted)', fontsize=16)
-    plt.tight_layout()
-    plt.savefig('regression_predictions.png', dpi=150, bbox_inches='tight')
-    plt.show()
-    print(f"Saved visualization to: regression_predictions.png")
 
 def main():
     """Main function"""

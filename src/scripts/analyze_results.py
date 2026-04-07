@@ -8,6 +8,32 @@ from tqdm import tqdm
 from ..config import Config
 from ..data.dataset import RectangleDataset
 from ..models.detector import SimpleRectangleDetector
+import re
+from datetime import datetime
+
+def get_dataset_info():
+    """Get current dataset type and generate labeled filenames"""
+    cfg = Config()
+    
+    # Extract dataset type from path
+    if 'grayscale_border' in cfg.DATASET_DIR:
+        dataset_type = 'grayscale_border'
+    elif 'colored_border' in cfg.DATASET_DIR:
+        dataset_type = 'colored_border'
+    elif 'grayscale' in cfg.DATASET_DIR:
+        dataset_type = 'grayscale'
+    elif 'colored' in cfg.DATASET_DIR:
+        dataset_type = 'colored'
+    else:
+        dataset_type = 'unknown'
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Generate dataset-specific filenames
+    predictions_file = f"analysis_{dataset_type}_predictions_{timestamp}.png"
+    metrics_file = f"analysis_{dataset_type}_metrics_{timestamp}.png"
+    
+    return dataset_type, predictions_file, metrics_file
 
 def calculate_iou(pred_box, true_box):
     """Calculate Intersection over Union (IoU) between two boxes"""
@@ -44,6 +70,12 @@ def analyze_model():
     """Analyze model performance on validation set"""
     cfg = Config()
     
+    # Get dataset info for labeled filenames
+    dataset_type, predictions_file, metrics_file = get_dataset_info()
+    
+    print(f"\n🔍 Analyzing {dataset_type} dataset...")
+    print(f"📁 Output files: {predictions_file}, {metrics_file}")
+    
     # Load analytic model (no trainable weights)
     model = SimpleRectangleDetector()
     
@@ -53,7 +85,7 @@ def analyze_model():
         normalize=False  # Don't normalize for visualization
     )
     
-    print(f"\nAnalyzing on {len(val_dataset)} validation samples...")
+    print(f"📊 Analyzing {len(val_dataset)} validation samples...")
     
     # Metrics
     ious = []
@@ -116,10 +148,9 @@ def analyze_model():
         plt.title(f'Sample {i+1}\nIoU: {iou:.3f}')
         plt.axis('off')
     
-    plt.suptitle('Validation Predictions (Green=True, Red=Predicted)', fontsize=16)
+    plt.suptitle(f'Validation Predictions - {dataset_type.title()} Dataset (Green=True, Red=Predicted)', fontsize=16)
     plt.tight_layout()
-    plt.savefig('validation_predictions.png', dpi=150, bbox_inches='tight')
-    plt.show()
+    plt.savefig(predictions_file, dpi=150, bbox_inches='tight')
     
     # Analyze entire validation set
     print("\nAnalyzing entire validation set...")
@@ -206,12 +237,12 @@ def analyze_model():
     plt.legend()
     
     plt.tight_layout()
-    plt.savefig('metrics_distribution.png', dpi=150, bbox_inches='tight')
-    plt.show()
+    plt.savefig(metrics_file, dpi=150, bbox_inches='tight')
     
-    print("\nVisualization files saved:")
-    print("  - validation_predictions.png: Visual comparison of predictions")
-    print("  - metrics_distribution.png: Distribution of performance metrics")
+    print(f"\n✅ Analysis complete for {dataset_type} dataset!")
+    print(f"📁 Visualization files saved:")
+    print(f"  - {predictions_file}: Visual comparison of predictions")
+    print(f"  - {metrics_file}: Distribution of performance metrics")
 
 if __name__ == "__main__":
     analyze_model()

@@ -211,6 +211,7 @@ class SimpleRectangleDetector:
                                     break
                         if is_boundary:
                             break
+                        # This is the exact same code as in FIND contour... uses next i and next j
                     
                     if is_boundary:
                         current_i, current_j = next_i, next_j
@@ -265,6 +266,9 @@ class SimpleRectangleDetector:
         # Find contours using custom approach
         contours = self.find_contours(dilated)
         
+        # Apply corner detection using Laplacian kernel
+        corner_response = self.detect_corners(gray)
+        
         if contours:
             # Find the largest contour that's not the entire image
             h_img, w_img = image.shape[:2]
@@ -274,24 +278,56 @@ class SimpleRectangleDetector:
             valid_contours = []
             for contour in contours:
                 area = self.contour_area(contour)
-                if area < image_area * 0.5:  # Must be less than half the image area
+                if area < image_area * 0.5:  # Must be less than half the image area 
                     valid_contours.append(contour)
             
             if valid_contours:
-                # Find the largest valid contour
-                largest_contour = max(valid_contours, key=self.contour_area)
-                area = self.contour_area(largest_contour)
+                # Score contours by corner validation
+                scored_contours = []
+                for contour in valid_contours:
+                    # Get bounding box
+                    x, y, w, h = self.bounding_rect(contour)
+                    
+                    # Validate corners
+                    corner_score = self.validate_corners(corner_response, x, y, w, h)
+                    area = self.contour_area(contour)
+                    
+                    # Combined score: area * corner_quality
+                    scored_contours.append((contour, corner_score, area, x, y, w, h))
                 
-                # Filter out very small areas
-                if area > 500:  # Minimum area threshold
-                    # Get bounding rectangle
-                    x, y, w, h = self.bounding_rect(largest_contour)
+                # Sort by corner score (descending)
+                scored_contours.sort(key=lambda x: x[1], reverse=True)
+                
+                # Select best contour with sufficient corner validation
+                best_contour = None
+                best_x, best_y, best_w, best_h = 0, 0, 0, 0
+                
+                for contour, corner_score, area, x, y, w, h in scored_contours:
+                    if area > 500:  # Minimum area threshold
+                        if corner_score > 0.3:  # Require at least 30% corner quality
+                            best_contour = contour
+                            best_x, best_y, best_w, best_h = x, y, w, h
+                            break
+                
+                # Fallback to largest if no good corners found
+                if best_contour is None and scored_contours:
+                    for contour, corner_score, area, x, y, w, h in scored_contours:
+                        if area > 500:
+                            best_contour = contour
+                            best_x, best_y, best_w, best_h = x, y, w, h
+                            break
+                
+                if best_contour is not None:
+                    # Refine bounding box using corner detection
+                    refined_x, refined_y, refined_w, refined_h = self.refine_box_with_corners(
+                        corner_response, best_x, best_y, best_w, best_h
+                    )
                     
                     # Convert to normalized coordinates [0, 1]
-                    x_center = (x + w / 2) / w_img
-                    y_center = (y + h / 2) / h_img
-                    width = w / w_img
-                    height = h / h_img
+                    x_center = (refined_x + refined_w / 2) / w_img
+                    y_center = (refined_y + refined_h / 2) / h_img
+                    width = refined_w / w_img
+                    height = refined_h / h_img
                     
                     # Ensure values are in [0, 1]
                     x_center = np.clip(x_center, 0, 1)
@@ -303,6 +339,113 @@ class SimpleRectangleDetector:
 
         # No object detected using edge-based method
         return np.array([0.0, 0.0, 0.0, 0.0, 0.0])
+    
+    def detect_corners(self, gray_image):
+        """
+        Detect corners using Laplacian kernel.
+        Returns corner response map (absolute values, high = strong corner).
+        """
+        # Apply Laplacian kernel
+        corners = self.conv2d(gray_image, self.c_kernel)
+        # Take absolute value (corners produce strong positive or negative response)
+        return np.abs(corners)
+    
+    def validate_corners(self, corner_response, x, y, w, h, margin=10):
+        """
+        Validate that a bounding box has strong corner responses at its corners.
+        Returns a score between 0 and 1 indicating corner quality.
+        """
+        h_map, w_map = corner_response.shape
+        
+        # Define corner regions (with margin)
+        corners = [
+            (max(0, x - margin), max(0, y - margin), x + margin, y + margin),  # Top-left
+            (min(w_map, x + w - margin), max(0, y - margin), min(w_map, x + w + margin), y + margin),  # Top-right
+            (max(0, x - margin), min(h_map, y + h - margin), x + margin, min(h_map, y + h + margin)),  # Bottom-left
+            (min(w_map, x + w - margin), min(h_map, y + h - margin), min(w_map, x + w + margin), min(h_map, y + h + margin))  # Bottom-right
+        ]
+        
+        corner_scores = []
+        for x1, y1, x2, y2 in corners:
+            if x2 > x1 and y2 > y1:
+                # Extract corner region
+                region = corner_response[y1:y2, x1:x2]
+                if region.size > 0:
+                    # Score is max response in region, normalized
+                    max_response = np.max(region)
+                    # Normalize by global max (add small epsilon to avoid div by zero)
+                    global_max = np.max(corner_response) + 1e-8
+                    corner_scores.append(max_response / global_max)
+        
+        # Return average corner score (0 to 1)
+        return np.mean(corner_scores) if corner_scores else 0.0
+    
+    def refine_box_with_corners(self, corner_response, x, y, w, h, search_margin=15):
+        """
+        Refine bounding box by aligning with detected corners.
+        Searches for strongest corner responses near the estimated corners.
+        """
+        h_map, w_map = corner_response.shape
+        
+        # Define search regions for each corner
+        search_regions = [
+            # (start_x, start_y, end_x, end_y, corner_name)
+            (max(0, x - search_margin), max(0, y - search_margin), 
+             min(w_map, x + search_margin), min(h_map, y + search_margin), 'tl'),
+            (max(0, x + w - search_margin), max(0, y - search_margin),
+             min(w_map, x + w + search_margin), min(h_map, y + search_margin), 'tr'),
+            (max(0, x - search_margin), max(0, y + h - search_margin),
+             min(w_map, x + search_margin), min(h_map, y + h + search_margin), 'bl'),
+            (max(0, x + w - search_margin), max(0, y + h - search_margin),
+             min(w_map, x + w + search_margin), min(h_map, y + h + search_margin), 'br')
+        ]
+        
+        refined_corners = []
+        
+        for sx1, sy1, sx2, sy2, name in search_regions:
+            if sx2 > sx1 and sy2 > sy1:
+                region = corner_response[sy1:sy2, sx1:sx2]
+                if region.size > 0:
+                    # Find position of maximum response
+                    max_idx = np.unravel_index(np.argmax(region), region.shape)
+                    # Convert to global coordinates
+                    refined_y = sy1 + max_idx[0]
+                    refined_x = sx1 + max_idx[1]
+                    refined_corners.append((refined_x, refined_y, np.max(region)))
+                else:
+                    # Fallback to original corner
+                    if name == 'tl':
+                        refined_corners.append((x, y, 0))
+                    elif name == 'tr':
+                        refined_corners.append((x + w, y, 0))
+                    elif name == 'bl':
+                        refined_corners.append((x, y + h, 0))
+                    else:  # br
+                        refined_corners.append((x + w, y + h, 0))
+        
+        if len(refined_corners) == 4:
+            # Calculate refined box from corners
+            # Use average of top corners for left edge, bottom for right, etc.
+            tl_x, tl_y, _ = refined_corners[0]
+            tr_x, tr_y, _ = refined_corners[1]
+            bl_x, bl_y, _ = refined_corners[2]
+            br_x, br_y, _ = refined_corners[3]
+            
+            # Average to reduce noise
+            left_x = int((tl_x + bl_x) / 2)
+            right_x = int((tr_x + br_x) / 2)
+            top_y = int((tl_y + tr_y) / 2)
+            bottom_y = int((bl_y + br_y) / 2)
+            
+            refined_x = max(0, left_x)
+            refined_y = max(0, top_y)
+            refined_w = max(10, right_x - left_x)  # Ensure minimum size
+            refined_h = max(10, bottom_y - top_y)
+            
+            return refined_x, refined_y, refined_w, refined_h
+        
+        # Fallback to original if refinement failed
+        return x, y, w, h
     
     def forward(self, image):
         """Forward pass - just direct regression"""
