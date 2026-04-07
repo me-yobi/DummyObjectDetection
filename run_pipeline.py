@@ -293,10 +293,10 @@ def main():
                 print("\n✅ Analysis complete! Check generated PNG files.")
             else:
                 print("\n❌ Analysis failed!")
-                sys.exit(1)
+            sys.exit(1)
     
     elif args.command == 'kernel_analysis':
-        """Run kernel behavior analysis to understand why border datasets perform better"""
+        """Run edge detection kernel analysis"""
         
         # Check if all required datasets exist
         datasets_exist, missing = check_datasets_exist(['grayscale', 'colored', 'grayscale_border', 'colored_border'])
@@ -306,67 +306,156 @@ def main():
         
         success = run_command(
             "python -m src.scripts.kernel_analysis",
-            "🔬 Running kernel behavior analysis (Sobel edges + Laplacian corners)"
+            "🔬 Running edge detection kernel analysis (Sobel X/Y)"
         )
+        
+        if success:
+            success &= run_command(
+                "python -m src.scripts.quantitative_kernel_analysis",
+                "📊 Running quantitative edge analysis"
+            )
+        
         if success:
             print("\n✅ Kernel analysis complete! Generated files:")
-            print("   • kernel_behavior_analysis.png - Full kernel response visualization")
-            print("   • edge_profile_analysis.png - Cross-section edge profiles")
+            print("   • edge_detection_analysis.png - Full kernel response visualization")
+            print("   • edge_profile_comparison.png - Cross-section edge profiles")
+            print("   • quantitative_edge_analysis.png - Statistical comparison")
         else:
             print("\n❌ Kernel analysis failed!")
             sys.exit(1)
     
     elif args.command == 'demo':
-        """Quick demo with small datasets"""
-        print("🚀 Running quick demo with small datasets...")
+        """Quick demo with 10 images per dataset"""
+        print("🚀 Running demo with 10 images per dataset...")
         
-        # Generate small datasets
+        # Generate all four datasets with 10 images each
         success = True
         success &= run_command(
-            "python -m src.scripts.prepare_data --output-dir datasets/demo_grayscale --dataset-type grayscale --num-images 50",
-            "🎨 Generating 50 grayscale demo images"
+            "python -m src.scripts.prepare_data --output-dir datasets/demo_grayscale --dataset-type grayscale --num-images 10",
+            "🎨 Generating 10 grayscale demo images"
         )
         success &= run_command(
-            "python -m src.scripts.prepare_data --output-dir datasets/demo_colored --dataset-type colored --num-images 50",
-            "🌈 Generating 50 colored demo images"
+            "python -m src.scripts.prepare_data --output-dir datasets/demo_colored --dataset-type colored --num-images 10",
+            "🌈 Generating 10 colored demo images"
+        )
+        success &= run_command(
+            "python -m src.scripts.prepare_data --output-dir datasets/demo_grayscale_border --dataset-type grayscale_border --num-images 10",
+            "📐 Generating 10 grayscale border demo images"
+        )
+        success &= run_command(
+            "python -m src.scripts.prepare_data --output-dir datasets/demo_colored_border --dataset-type colored_border --num-images 10",
+            "🎨 Generating 10 colored border demo images"
         )
         
         if not success:
             print("\n❌ Demo dataset generation failed!")
             sys.exit(1)
         
-        # Evaluate on colored dataset
+        # Evaluate and analyze each dataset
+        datasets_to_demo = [
+            ('grayscale', 'demo_grayscale'),
+            ('colored', 'demo_colored'), 
+            ('grayscale_border', 'demo_grayscale_border'),
+            ('colored_border', 'demo_colored_border')
+        ]
+        
+        for dataset_type, dataset_path in datasets_to_demo:
+            print(f"\n📊 Evaluating {dataset_type} dataset...")
+            
+            # Update config for this dataset
+            config_path = "src/config.py"
+            with open(config_path, 'r') as f:
+                config_content = f.read()
+            
+            new_config = re.sub(
+                r'DATASET_DIR = os\.path\.join\(BASE_DIR, "[^"]*"\).*',
+                f'DATASET_DIR = os.path.join(BASE_DIR, "datasets/{dataset_path}")  # Demo {dataset_type} dataset',
+                config_content
+            )
+            
+            with open(config_path, 'w') as f:
+                f.write(new_config)
+            
+            # Run evaluation
+            success &= run_command(
+                "python -m src.evaluate_model",
+                f"📊 Evaluating on demo {dataset_type} dataset"
+            )
+            
+            # Run analysis
+            success &= run_command(
+                "python -m src.scripts.analyze_results",
+                f"📈 Analyzing demo {dataset_type} results"
+            )
+        
+        # Run kernel analysis on demo datasets
+        print(f"\n🔬 Running edge detection kernel analysis on demo datasets...")
+        
+        # Update kernel analysis to use demo datasets
+        kernel_analysis_path = "src/scripts/kernel_analysis.py"
+        with open(kernel_analysis_path, 'r') as f:
+            kernel_content = f.read()
+        
+        # Replace dataset paths with demo paths
+        kernel_content_demo = kernel_content.replace(
+            "datasets/rectangles_grayscale", "datasets/demo_grayscale"
+        ).replace(
+            "datasets/rectangles_colored", "datasets/demo_colored"
+        ).replace(
+            "datasets/rectangles_grayscale_border", "datasets/demo_grayscale_border"
+        ).replace(
+            "datasets/rectangles_colored_border", "datasets/demo_colored_border"
+        )
+        
+        # Write temporary demo kernel analysis file
+        with open("src/scripts/kernel_analysis_demo.py", 'w') as f:
+            f.write(kernel_content_demo)
+        
         success &= run_command(
-            "python -m src.scripts.prepare_data --output-dir datasets/demo_colored --dataset-type colored --num-images 50 --force",
-            "🔧 Updating config for colored demo dataset"
+            "python -m src.scripts.kernel_analysis_demo",
+            "🔬 Running edge detection kernel analysis (Sobel X/Y)"
         )
         
-        # Update config for demo
-        config_path = "src/config.py"
-        with open(config_path, 'r') as f:
-            config_content = f.read()
+        # Update quantitative kernel analysis to use demo datasets
+        quantitative_path = "src/scripts/quantitative_kernel_analysis.py"
+        with open(quantitative_path, 'r') as f:
+            quantitative_content = f.read()
         
-        new_config = re.sub(
-            r'DATASET_DIR = os\.path\.join\(BASE_DIR, "[^"]*"\).*',
-            'DATASET_DIR = os.path.join(BASE_DIR, "datasets/demo_colored")  # Demo colored dataset',
-            config_content
+        # Replace dataset paths with demo paths
+        quantitative_content_demo = quantitative_content.replace(
+            "datasets/rectangles_grayscale", "datasets/demo_grayscale"
+        ).replace(
+            "datasets/rectangles_colored", "datasets/demo_colored"
+        ).replace(
+            "datasets/rectangles_grayscale_border", "datasets/demo_grayscale_border"
+        ).replace(
+            "datasets/rectangles_colored_border", "datasets/demo_colored_border"
         )
         
-        with open(config_path, 'w') as f:
-            f.write(new_config)
+        # Write temporary demo quantitative kernel analysis file
+        with open("src/scripts/quantitative_kernel_analysis_demo.py", 'w') as f:
+            f.write(quantitative_content_demo)
         
         success &= run_command(
-            "python -m src.evaluate_model",
-            "📊 Evaluating on demo colored dataset"
+            "python -m src.scripts.quantitative_kernel_analysis_demo",
+            "📊 Running quantitative edge analysis"
         )
         
-        success &= run_command(
-            "python -m src.scripts.analyze_results",
-            "📈 Analyzing demo results"
-        )
+        # Clean up temporary files
+        if os.path.exists("src/scripts/kernel_analysis_demo.py"):
+            os.remove("src/scripts/kernel_analysis_demo.py")
+        if os.path.exists("src/scripts/quantitative_kernel_analysis_demo.py"):
+            os.remove("src/scripts/quantitative_kernel_analysis_demo.py")
         
         if success:
-            print("\n🎉 Demo complete! Check the generated visualizations.")
+            print("\n🎉 Demo complete! Check the generated visualizations:")
+            print("   • analysis_grayscale_predictions_*.png")
+            print("   • analysis_colored_predictions_*.png") 
+            print("   • analysis_grayscale_border_predictions_*.png")
+            print("   • analysis_colored_border_predictions_*.png")
+            print("   • edge_detection_analysis.png - Kernel response visualization")
+            print("   • edge_profile_comparison.png - Edge strength profiles")
+            print("   • quantitative_edge_analysis.png - Statistical comparison")
         else:
             print("\n❌ Demo failed!")
             sys.exit(1)
@@ -436,8 +525,9 @@ def main():
             "validation_predictions.png", 
             "metrics_distribution.png",
             "dataset_comparison.png",
-            "edge_profile_analysis.png",
-            "kernel_behavior_analysis.png",
+            "edge_detection_analysis.png",
+            "edge_profile_comparison.png",
+            "quantitative_edge_analysis.png",
             "analysis_*.png"  # Catches all analysis files
         ]
         

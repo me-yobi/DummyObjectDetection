@@ -48,7 +48,6 @@ python -m src.scripts.analyze_results
 | `./run evaluate --dataset colored` | Evaluate on specific dataset only |
 | `./run analyze` | Analyze ALL datasets (default) |
 | `./run analyze --dataset colored` | Analyze specific dataset only |
-| `./run kernel_analysis` | Run kernel behavior analysis (Sobel + Laplacian) |
 | `./run clean` | Remove all generated files and analysis PNGs |
 
 **Options:**
