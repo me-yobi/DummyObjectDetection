@@ -229,17 +229,25 @@ class SimpleRectangleDetector:
         if image.min() < 0:
             image = (image + 1.0) / 2.0
         
-        # Convert to grayscale
+        # Process edge detection on colored images (no grayscale conversion)
         if len(image.shape) == 3:
-            gray = np.mean(image, axis=2)
+            # Process each color channel separately
+            h_edges_r = self.conv2d(image[:,:,0], self.h_kernel)
+            h_edges_g = self.conv2d(image[:,:,1], self.h_kernel)
+            h_edges_b = self.conv2d(image[:,:,2], self.h_kernel)
+            
+            v_edges_r = self.conv2d(image[:,:,0], self.v_kernel)
+            v_edges_g = self.conv2d(image[:,:,1], self.v_kernel)
+            v_edges_b = self.conv2d(image[:,:,2], self.v_kernel)
+            
+            # Combine edges across all color channels
+            h_edges = np.sqrt(h_edges_r**2 + h_edges_g**2 + h_edges_b**2)
+            v_edges = np.sqrt(v_edges_r**2 + v_edges_g**2 + v_edges_b**2)
         else:
-            gray = image.copy()
+            # Grayscale image - process normally
+            h_edges = self.conv2d(image, self.h_kernel)
+            v_edges = self.conv2d(image, self.v_kernel)
         
-        # Custom edge detection using convolution kernels directly on grayscale image
-        # Horizontal edges
-        h_edges = self.conv2d(gray, self.h_kernel)
-        # Vertical edges  
-        v_edges = self.conv2d(gray, self.v_kernel)
         # Combined edge strength
         edges = np.sqrt(h_edges**2 + v_edges**2)
         

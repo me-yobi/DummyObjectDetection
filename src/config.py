@@ -12,10 +12,10 @@ class Config:
     
     # Paths
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # Project root
-    DATASET_DIR = os.path.join(BASE_DIR, "datasets/demo_colored_border")  # Demo colored_border dataset
+    DATASET_DIR = os.path.join(BASE_DIR, "datasets/rectangles_colored_border")
     # Alternative datasets:
-    # DATASET_DIR = os.path.join(BASE_DIR, "datasets/demo_colored_border")  # Demo colored_border dataset
-    # DATASET_DIR = os.path.join(BASE_DIR, "datasets/demo_colored_border")  # Demo colored_border dataset
+    # DATASET_DIR = os.path.join(BASE_DIR, "datasets/rectangles_colored_border")
+    # DATASET_DIR = os.path.join(BASE_DIR, "datasets/rectangles_colored_border")
     DATA_GENERATOR_PATH = os.path.join(BASE_DIR, "src/data", "DataGenerator.py")
     SAVE_DIR = os.path.join(BASE_DIR, "saved_models")
     os.makedirs(SAVE_DIR, exist_ok=True)
