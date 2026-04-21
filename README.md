@@ -268,5 +268,13 @@ pip install -r requirements.txt
 
 
 
-# Intermediate steps still need error reporting
 # Color images are no longer being converted to grayscale!
+
+# Things left to do before presentation:
+- Clean up README.md so that new users are able to run the project easily after grabbing it on github
+- Add a powerpoint to the github repo so that presentation materials are all in one place and available for online audiences. 
+- Add final touches so that corner detection works properly on the other branch, or remove it entirely (discuss with Dr. Speegle)
+- Document all the things I've learned. What makes this a good use case for regression? Why did I pick it in the first place? In what application does something like this make sense?
+- Make sure that all files are as clean as they can be, and make sure that the code itself has comments to explain what's happening. 
+- Make the project public so that other people can check it out!
+
