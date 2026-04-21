@@ -269,13 +269,4 @@ pip install -r requirements.txt
 
 
 # Intermediate steps still need error reporting
-# Colored in boxes versus just the outline (as 3rd and 4th dataset) (DONE)
-# Is corner detection looking for a "hole" on the inside corner?
-#       Turns out, yes! I'm thinking this is due to the shape of the kernel used for edge detection. 
-# Do fully colored boxes make it harder for the model to detect edges? (Does the space on the inside of a box give a "second chance") (DONE)
-# noise is still appearing in the filled box of the grayscale dataset
-# When I ran "analyze", it seems to be analyzing the same dataset, which was not happening before. Is this due to new ./run pipeline changes?
-# corner detection is either finding the inside corner or the outside corner, but not both. Can we get it to do both?
-# The filled in box seems to be a separate problem because there is no noise on the inside of the box. 
-# maybe take absolute value, but what would the threshold be? Will run into issues with setting threshold if not specific to corner detection kernel. 
-# maybe take median of the absolute values?
+# Color images are no longer being converted to grayscale!
