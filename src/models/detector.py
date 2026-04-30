@@ -3,7 +3,21 @@ import numpy as np
 class SimpleRectangleDetector:
     """
     Simple rectangle detector using direct regression from convolution features.
-    No deep learning - just direct computation of bounding box from edge features.
+    
+    This detector uses traditional computer vision techniques (Sobel edge detection)
+    combined with contour analysis to locate rectangles in images. It does not use
+    deep learning or trainable weights, making it fast and interpretable.
+    
+    The detector works by:
+    1. Applying Sobel operators to detect horizontal and vertical edges
+    2. Combining edge responses to find rectangle boundaries
+    3. Using contour analysis to extract bounding boxes
+    4. Returning results in YOLO format [class, x_center, y_center, width, height]
+    
+    Attributes:
+        image_size: Input image size (assumed square)
+        h_kernel: Horizontal edge detection kernel (Sobel X)
+        v_kernel: Vertical edge detection kernel (Sobel Y)
     """
     
     def __init__(self, image_size=256):

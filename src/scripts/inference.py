@@ -4,6 +4,7 @@
 import argparse
 import cv2
 import numpy as np
+import os
 from .config import Config
 from ..models.detector import SimpleRectangleDetector
 from ..utils.visualization import plot_image_with_boxes
@@ -101,8 +102,10 @@ def main():
         
         plt.figure(figsize=(10, 8))
         plt.imshow(img_vis)
-        plt.title(f'Prediction: {output}')
-        plt.axis('off')
+        plt.title(f'Rectangle Detection Result\nPrediction: {output[0]:.3f} (confidence)\nBox: [{pred_box[0]:.1f}, {pred_box[1]:.1f}, {pred_box[2]:.1f}, {pred_box[3]:.1f}]')
+        plt.xlabel('Pixel X (Width)')
+        plt.ylabel('Pixel Y (Height)')
+        plt.axis('on')
         plt.tight_layout()
         plt.show()
     except ImportError:

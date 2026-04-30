@@ -5,7 +5,17 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 class RectangleDataset:
-    """Custom dataset class for rectangle detection without PyTorch"""
+    """Custom dataset class for rectangle detection without PyTorch dependency.
+    
+    This dataset loads images and corresponding YOLO-format labels for rectangle detection.
+    Images are automatically normalized and converted to CHW format for model compatibility.
+    
+    Attributes:
+        image_dir: Path to directory containing image files
+        label_dir: Path to directory containing label files
+        image_files: Sorted list of image filenames
+        normalize: Whether to normalize images to [-1, 1] range
+    """
     
     def __init__(self, data_dir, normalize=True):
         print(f"📂 Initializing dataset from: {data_dir}")
@@ -23,6 +33,14 @@ class RectangleDataset:
         return len(self.image_files)
     
     def __getitem__(self, idx):
+        """Get a single sample from the dataset.
+        
+        Args:
+            idx: Index of the sample to retrieve
+            
+        Returns:
+            Tuple of (image, label) where image is normalized CHW format and label is YOLO format
+        """
         # Load image
         image_path = os.path.join(self.image_dir, self.image_files[idx])
         image = np.array(Image.open(image_path).convert('RGB'))
@@ -43,7 +61,14 @@ class RectangleDataset:
         return image, label
     
     def get_batch(self, indices):
-        """Get a batch of samples"""
+        """Get a batch of samples efficiently.
+        
+        Args:
+            indices: List of indices to retrieve from the dataset
+            
+        Returns:
+            Tuple of (images, labels) as numpy arrays
+        """
         images = []
         labels = []
         
@@ -55,40 +80,19 @@ class RectangleDataset:
         return np.array(images), np.array(labels)
 
 
-class DataLoader:
-    """Simple data loader without PyTorch"""
-    
-    def __init__(self, dataset, batch_size=32, shuffle=True):
-        self.dataset = dataset
-        self.batch_size = batch_size
-        self.shuffle = shuffle
-        self.indices = np.arange(len(dataset))
-        self.current_idx = 0
-        
-        if shuffle:
-            np.random.shuffle(self.indices)
-    
-    def __iter__(self):
-        self.current_idx = 0
-        if self.shuffle:
-            np.random.shuffle(self.indices)
-        return self
-    
-    def __next__(self):
-        if self.current_idx >= len(self.indices):
-            raise StopIteration
-        
-        batch_indices = self.indices[self.current_idx:self.current_idx + self.batch_size]
-        self.current_idx += self.batch_size
-        
-        return self.dataset.get_batch(batch_indices)
-    
-    def __len__(self):
-        return int(np.ceil(len(self.dataset) / self.batch_size))
-
-
 def get_dataloaders(data_dir, batch_size=32, val_split=0.2, random_state=42, num_workers=0):
-    """Create train and validation dataloaders using scikit-learn for splitting"""
+    """Create train and validation dataloaders using scikit-learn for splitting.
+    
+    Args:
+        data_dir: Directory containing the dataset with 'images' and 'labels' subdirectories
+        batch_size: Number of samples per batch
+        val_split: Fraction of data to use for validation
+        random_state: Random seed for reproducible splitting
+        num_workers: Unused parameter kept for API compatibility
+        
+    Returns:
+        Tuple of (train_loader, val_loader) dataloaders
+    """
     
     # Create full dataset
     full_dataset = RectangleDataset(data_dir)

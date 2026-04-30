@@ -528,6 +528,8 @@ def main():
             "edge_detection_analysis.png",
             "edge_profile_comparison.png",
             "quantitative_edge_analysis.png",
+            "edge_profile_analysis.png",
+            "kernel_behavior_analysis.png",
             "analysis_*.png"  # Catches all analysis files
         ]
         

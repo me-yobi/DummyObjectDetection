@@ -33,7 +33,10 @@ def plot_image_with_boxes(image, boxes, class_names=None, figsize=(10, 10)):
     plt.figure(figsize=figsize)
     axes = plt.gca()
     plt.imshow(image)
-    plt.axis('off')
+    plt.xlabel('Pixel X (Width)')
+    plt.ylabel('Pixel Y (Height)')
+    plt.title(f'Detection Results (Image Size: {w}x{h} pixels)')
+    plt.axis('on')  # Keep axis to show scale information
     
     for box in boxes:
         if len(box) != 5:
@@ -76,13 +79,14 @@ def visualize_batch(images, targets, predictions=None, class_names=None, max_ima
         # Ground truth
         plt.subplot(1, 2, 1)
         plot_image_with_boxes(image, [target.tolist()], class_names, figsize=(6, 6))
-        plt.title("Ground Truth")
+        plt.title("Ground Truth Bounding Box")
         
         # Predictions (if available)
         if predictions is not None:
             plt.subplot(1, 2, 2)
             plot_image_with_boxes(image, [predictions[i].tolist()], class_names, figsize=(6, 6))
-            plt.title("Prediction")
+            plt.title("Model Prediction")
         
+        plt.suptitle(f"Sample {i+1} - Ground Truth vs Prediction", fontsize=14)
         plt.tight_layout()
         plt.show()

@@ -11,8 +11,6 @@ import argparse
 from pathlib import Path
 
 try:
-    import sys
-    import os
     sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
     from data.DataGenerator import generate_rectangle_dataset
 except ImportError:
